@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "intfloat.h": "c",
+        "hevc.h": "c"
+    }
+}
