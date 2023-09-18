@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "intfloat.h": "c",
-        "hevc.h": "c"
+        "hevc.h": "c",
+        "demux.h": "c"
     }
 }

@@ -338,6 +338,7 @@ static inline void rdft_end(RDFTContext *r)
 static inline void dct_end(DCTContext *d)
 {
 #if AVFFT
+    av_log(NULL, AV_LOG_ERROR, "jcz---%s threre call av_dct_end \n", __FUNCTION__);
     av_dct_end(d);
 #else
     ff_dct_end(d);

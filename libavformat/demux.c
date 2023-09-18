@@ -2428,6 +2428,7 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
     int64_t probesize = ic->probesize;
     int eof_reached = 0;
     int *missing_streams = av_opt_ptr(ic->iformat->priv_class, ic->priv_data, "missing_streams");
+    const char *print_options;
 
     flush_codecs = probesize > 0;
 
@@ -2435,15 +2436,20 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
 
     max_stream_analyze_duration = max_analyze_duration;
     max_subtitle_analyze_duration = max_analyze_duration;
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::max_analyze_duration=%d probesize=%d\n", __FUNCTION__, max_analyze_duration, probesize);
     if (!max_analyze_duration) {
         max_stream_analyze_duration =
-        max_analyze_duration        = 5*AV_TIME_BASE;
-        max_subtitle_analyze_duration = 30*AV_TIME_BASE;
+        max_analyze_duration        = 5*AV_TIME_BASE; // 5 * 100 0000
+        max_subtitle_analyze_duration = 30*AV_TIME_BASE; // 30 * 100 0000
         if (!strcmp(ic->iformat->name, "flv"))
             max_stream_analyze_duration = 90*AV_TIME_BASE;
         if (!strcmp(ic->iformat->name, "mpeg") || !strcmp(ic->iformat->name, "mpegts"))
             max_stream_analyze_duration = 7*AV_TIME_BASE;
     }
+    // max_analyze_duration = 5000000
+    // max_stream_analyze_duration = 5000000
+    // max_subtitle_analyze_duration = 30000000
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::max_analyze_duration=%d max_stream_analyze_duration=%d max_subtitle_analyze_duration=%d\n", __FUNCTION__, max_stream_analyze_duration, max_subtitle_analyze_duration);
 
     if (ic->pb) {
         FFIOContext *const ctx = ffiocontext(ic->pb);
@@ -2451,6 +2457,8 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                avio_tell(ic->pb), ctx->bytes_read, ctx->seek_count, ic->nb_streams);
     }
 
+
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::ic->nb_streams=%d\n", __FUNCTION__, (ic->nb_streams));
     for (unsigned i = 0; i < ic->nb_streams; i++) {
         const AVCodec *codec;
         AVDictionary *thread_opt = NULL;
@@ -2458,6 +2466,8 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
         FFStream *const sti = ffstream(st);
         AVCodecContext *const avctx = sti->avctx;
 
+
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::st->codecpar->codec_type=%d\n", __FUNCTION__, (st->codecpar->codec_type));
         if (st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO ||
             st->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
 /*            if (!st->time_base.num)
@@ -2466,9 +2476,12 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
                 avctx->time_base = st->time_base;
         }
 
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::ic->flags=%d sti->request_probe=%d st->codecpar->codec_id=%d sti->need_parsing=%d\n", __FUNCTION__, (ic->flags & AVFMT_FLAG_NOPARSE), sti->request_probe, st->codecpar->codec_id, sti->need_parsing);
         /* check if the caller has overridden the codec id */
         // only for the split stuff
         if (!sti->parser && !(ic->flags & AVFMT_FLAG_NOPARSE) && sti->request_probe <= 0) {
+
+            av_log(NULL, AV_LOG_WARNING, "jcz---%s:: av_parser_init start \n" , __FUNCTION__);
             sti->parser = av_parser_init(st->codecpar->codec_id);
             if (sti->parser) {
                 if (sti->need_parsing == AVSTREAM_PARSE_HEADERS) {
@@ -2483,12 +2496,14 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
             }
         }
 
+        // 讲视频流解码器参数集中的 codec_type、codec_id、codec_tag传递到 音视频编解码器上下文中
         ret = avcodec_parameters_to_context(avctx, st->codecpar);
         if (ret < 0)
             goto find_stream_info_err;
         if (sti->request_probe <= 0)
             sti->avctx_inited = 1;
 
+        // 根据视频流解码器参数集设置的解码器id 去查找解码器
         codec = find_probe_decoder(ic, st, st->codecpar->codec_id);
 
         /* Force thread count to 1 since the H.264 decoder will not extract
@@ -2503,18 +2518,24 @@ int avformat_find_stream_info(AVFormatContext *ic, AVDictionary **options)
             av_dict_set(options ? &options[i] : &thread_opt, "codec_whitelist", ic->codec_whitelist, 0);
 
         // Try to just open decoders, in case this is enough to get parameters.
-        // Also ensure that subtitle_header is properly set.
+        // Also ensure that subtitle_header is properly set.        
+        av_log(ic, AV_LOG_WARNING, "jcz---%s::next try to avcodec_open2 request_probe=%d\n", __FUNCTION__, sti->request_probe);
         if (!has_codec_parameters(st, NULL) && sti->request_probe <= 0 ||
             st->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE) {
-            if (codec && !avctx->codec)
-                if (avcodec_open2(avctx, codec, options ? &options[i] : &thread_opt) < 0)
+            if (codec && !avctx->codec) {
+                av_log(ic, AV_LOG_ERROR, "jcz---%s::next try to avcodec_open2 start~~~~~~~~~\n", __FUNCTION__);
+                if (avcodec_open2(avctx, codec, options ? &options[i] : &thread_opt) < 0) {
                     av_log(ic, AV_LOG_WARNING,
                            "Failed to open codec in %s\n",__FUNCTION__);
+                }
+                av_log(ic, AV_LOG_ERROR, "jcz---%s::after avcodec_open2 end~~~~~ \n", __FUNCTION__);
+            }
         }
         if (!options)
             av_dict_free(&thread_opt);
     }
 
+    av_log(ic, AV_LOG_WARNING, "jcz---%s::next read_size \n", __FUNCTION__);
     read_size = 0;
     for (;;) {
         const AVPacket *pkt;

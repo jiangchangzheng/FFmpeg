@@ -2741,6 +2741,7 @@ static int is_realtime(AVFormatContext *s)
 /* this thread gets the stream from the disk or the network */
 static int read_thread(void *arg)
 {
+    av_log(NULL, AV_LOG_ERROR, "jcz---%s:: start\n", __FUNCTION__);
     VideoState *is = arg;
     AVFormatContext *ic = NULL;
     int err, i, ret;
@@ -2752,6 +2753,7 @@ static int read_thread(void *arg)
     SDL_mutex *wait_mutex = SDL_CreateMutex();
     int scan_all_pmts_set = 0;
     int64_t pkt_ts;
+    const char *print_options;
 
     if (!wait_mutex) {
         av_log(NULL, AV_LOG_FATAL, "SDL_CreateMutex(): %s\n", SDL_GetError());
@@ -2768,18 +2770,35 @@ static int read_thread(void *arg)
         ret = AVERROR(ENOMEM);
         goto fail;
     }
+    /*
+    * step 1: 创建：AVFormatContext
+    * create AVFormatContext object which defined in avformat.h
+    */
     ic = avformat_alloc_context();
     if (!ic) {
         av_log(NULL, AV_LOG_FATAL, "Could not allocate context.\n");
         ret = AVERROR(ENOMEM);
         goto fail;
     }
+    // 
     ic->interrupt_callback.callback = decode_interrupt_cb;
     ic->interrupt_callback.opaque = is;
     if (!av_dict_get(format_opts, "scan_all_pmts", NULL, AV_DICT_MATCH_CASE)) {
         av_dict_set(&format_opts, "scan_all_pmts", "1", AV_DICT_DONT_OVERWRITE);
         scan_all_pmts_set = 1;
     }
+
+    // 输出当此时的format_opts
+    av_dict_get_string(format_opts, &print_options, '=', ',');
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::print format_opts %s\n", __FUNCTION__, print_options);
+    av_freep(&print_options);
+    /* 
+    * step 2: 设置：AVInputFormat
+    * 参数1: 封装格式上下文，要注意这个需要记得释放
+    * 参数2: 需要打开的输入流滴支持，这个地址支持 http、rtsp，本地文件地址，这个地址会被保存到AVFormatContext中
+    * 参数3: AVInputFormat  指定输入的格式，一般不指定，可以传0
+    * 参数4: AVDictionary 一组key-value配置，一般不指定，可以传0 
+    */
     err = avformat_open_input(&ic, is->filename, is->iformat, &format_opts);
     if (err < 0) {
         print_error(is->filename, err);
@@ -2802,10 +2821,21 @@ static int read_thread(void *arg)
     av_format_inject_global_side_data(ic);
 
     if (find_stream_info) {
+        av_dict_get_string(codec_opts, &print_options, '=', ',');
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::print codec_opts %s\n", __FUNCTION__, print_options);
+        av_freep(&print_options);
+        // 
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::before setup_find_stream_info_opts call\n", __FUNCTION__);
         AVDictionary **opts = setup_find_stream_info_opts(ic, codec_opts);
         int orig_nb_streams = ic->nb_streams;
 
+        /*
+        * step 3:
+        * 媒体信息的探测和分析
+        */
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::avformat_find_stream_info start\n", __FUNCTION__);
         err = avformat_find_stream_info(ic, opts);
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::avformat_find_stream_info end\n", __FUNCTION__);
 
         for (i = 0; i < orig_nb_streams; i++)
             av_dict_free(&opts[i]);
@@ -2849,6 +2879,8 @@ static int read_thread(void *arg)
 
     is->realtime = is_realtime(ic);
 
+    av_log(NULL, AV_LOG_INFO, "jcz---show_status=%d\n", show_status);
+    show_status = 1;
     if (show_status)
         av_dump_format(ic, 0, is->filename, 0);
 

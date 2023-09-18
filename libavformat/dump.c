@@ -630,18 +630,21 @@ static void dump_stream_format(const AVFormatContext *ic, int i,
 void av_dump_format(AVFormatContext *ic, int index,
                     const char *url, int is_output)
 {
+    av_log(NULL, AV_LOG_WARNING, "jcz--- av_dump_format print AVFormatContext info");
     int i;
     uint8_t *printed = ic->nb_streams ? av_mallocz(ic->nb_streams) : NULL;
     if (ic->nb_streams && !printed)
         return;
-
+    //  Input #0, mov,mp4
     av_log(NULL, AV_LOG_INFO, "%s #%d, %s, %s '%s':\n",
            is_output ? "Output" : "Input",
            index,
            is_output ? ic->oformat->name : ic->iformat->name,
            is_output ? "to" : "from", url);
+    //  Metadata:
     dump_metadata(NULL, ic->metadata, "  ");
-
+    
+    // Duration: 00:02:27.70, start: 0.000000, bitrate: 719 kb/s
     if (!is_output) {
         av_log(NULL, AV_LOG_INFO, "  Duration: ");
         if (ic->duration != AV_NOPTS_VALUE) {
@@ -676,6 +679,7 @@ void av_dump_format(AVFormatContext *ic, int index,
         av_log(NULL, AV_LOG_INFO, "\n");
     }
 
+    // 
     if (ic->nb_chapters)
         av_log(NULL, AV_LOG_INFO, "  Chapters:\n");
     for (i = 0; i < ic->nb_chapters; i++) {
@@ -688,14 +692,15 @@ void av_dump_format(AVFormatContext *ic, int index,
 
         dump_metadata(NULL, ch->metadata, "      ");
     }
-
+    
+    // 
     if (ic->nb_programs) {
         int j, k, total = 0;
         for (j = 0; j < ic->nb_programs; j++) {
             const AVProgram *program = ic->programs[j];
             const AVDictionaryEntry *name = av_dict_get(program->metadata,
                                                         "name", NULL, 0);
-            av_log(NULL, AV_LOG_INFO, "  Program %d %s\n", program->id,
+            av_log(NULL, AV_LOG_ERROR, "  Program %d %s\n", program->id,
                    name ? name->value : "");
             dump_metadata(NULL, program->metadata, "    ");
             for (k = 0; k < program->nb_stream_indexes; k++) {
@@ -709,6 +714,7 @@ void av_dump_format(AVFormatContext *ic, int index,
             av_log(NULL, AV_LOG_INFO, "  No Program\n");
     }
 
+    // 数据流格式 Stream #0:0[0x1](und): Video 与 Stream #0:1[0x2](und): Audio
     for (i = 0; i < ic->nb_streams; i++)
         if (!printed[i])
             dump_stream_format(ic, i, index, is_output);

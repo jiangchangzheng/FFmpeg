@@ -114,10 +114,12 @@ static int64_t get_bit_rate(AVCodecContext *ctx)
 
 int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *codec, AVDictionary **options)
 {
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::start next check flag\n", __FUNCTION__);
     int ret = 0;
     AVCodecInternal *avci;
     const FFCodec *codec2;
 
+    // 如果已经打开，直接返回
     if (avcodec_is_open(avctx))
         return 0;
 
@@ -146,7 +148,9 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
 
     if (avctx->extradata_size < 0 || avctx->extradata_size >= FF_MAX_EXTRADATA_SIZE)
         return AVERROR(EINVAL);
-
+    
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::start next av_mallocz avci\n", __FUNCTION__);
+    // 各种malloc
     avci = av_mallocz(sizeof(*avci));
     if (!avci) {
         ret = AVERROR(ENOMEM);
@@ -180,6 +184,8 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
     } else {
         avctx->priv_data = NULL;
     }
+
+    // 将输入的AVDictionary形式的选项设置到AVCodecContext
     if ((ret = av_opt_set_dict(avctx, options)) < 0)
         goto free_and_end;
 
@@ -200,13 +206,14 @@ int attribute_align_arg avcodec_open2(AVCodecContext *avctx, const AVCodec *code
             goto free_and_end;
     }
 
+    // 检查宽和高
     if ((avctx->coded_width || avctx->coded_height || avctx->width || avctx->height)
         && (  av_image_check_size2(avctx->coded_width, avctx->coded_height, avctx->max_pixels, AV_PIX_FMT_NONE, 0, avctx) < 0
            || av_image_check_size2(avctx->width,       avctx->height,       avctx->max_pixels, AV_PIX_FMT_NONE, 0, avctx) < 0)) {
         av_log(avctx, AV_LOG_WARNING, "Ignoring invalid width/height values\n");
         ff_set_dimensions(avctx, 0, 0);
     }
-
+    // 检查宽高比
     if (avctx->width > 0 && avctx->height > 0) {
         if (av_image_check_sar(avctx->width, avctx->height,
                                avctx->sample_aspect_ratio) < 0) {
@@ -255,7 +262,8 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     avctx->frame_number = 0;
     avctx->codec_descriptor = avcodec_descriptor_get(avctx->codec_id);
-
+  
+    // 检查编码器是否出于“实验”阶段
     if ((avctx->codec->capabilities & AV_CODEC_CAP_EXPERIMENTAL) &&
         avctx->strict_std_compliance > FF_COMPLIANCE_EXPERIMENTAL) {
         const char *codec_string = av_codec_is_encoder(codec) ? "encoder" : "decoder";
@@ -278,10 +286,13 @@ FF_ENABLE_DEPRECATION_WARNINGS
         avctx->time_base.den = avctx->sample_rate;
     }
 
+    // 检查输入参数是否符合【编码器】要求
     if (av_codec_is_encoder(avctx->codec))
         ret = ff_encode_preinit(avctx);
     else
         ret = ff_decode_preinit(avctx);
+
+    
     if (ret < 0)
         goto free_and_end;
 
@@ -293,6 +304,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     if (HAVE_THREADS
         && !(avci->frame_thread_encoder && (avctx->active_thread_type&FF_THREAD_FRAME))) {
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::ff_thread_init----start---\n", __FUNCTION__);
         /* Frame-threaded decoders call FFCodec.init for their child contexts. */
         lock_avcodec(codec2);
         ret = ff_thread_init(avctx);
@@ -307,6 +319,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
     if (!(avctx->active_thread_type & FF_THREAD_FRAME) ||
         avci->frame_thread_encoder) {
         if (codec2->init) {
+            av_log(NULL, AV_LOG_WARNING, "jcz---%s::codec2->init----start---\n", __FUNCTION__);
             lock_avcodec(codec2);
             ret = codec2->init(avctx);
             unlock_avcodec(codec2);
@@ -320,6 +333,7 @@ FF_ENABLE_DEPRECATION_WARNINGS
 
     ret=0;
 
+    // 解码器的参数大部分都是由系统自动设定而不是由用户设定，因而不怎么需要检查
     if (av_codec_is_decoder(avctx->codec)) {
         if (!avctx->bit_rate)
             avctx->bit_rate = get_bit_rate(avctx);
@@ -346,6 +360,8 @@ FF_DISABLE_DEPRECATION_WARNINGS
                 avctx->channel_layout = 0;
             }
         }
+        
+        av_log(NULL, AV_LOG_WARNING, "jcz---%s::avctx->channels=%d, avctx->bits_per_coded_sample=%d\n", __FUNCTION__, avctx->channels, avctx->bits_per_coded_sample);
         if (avctx->channels && avctx->channels < 0 ||
             avctx->channels > FF_SANE_NB_CHANNELS) {
             ret = AVERROR(EINVAL);
@@ -367,9 +383,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
         av_assert0(*(const AVClass **)avctx->priv_data == codec->priv_class);
 
 end:
-
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::end------\n", __FUNCTION__);
     return ret;
 free_and_end:
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::free_and_end------\n", __FUNCTION__);
     avcodec_close(avctx);
     goto end;
 }

@@ -898,6 +898,7 @@ static int process_frame(FFFrameSync *fs)
 
 static av_cold int init(AVFilterContext *ctx)
 {
+    av_log(NULL, AV_LOG_WARNING, "jcz---%s::vf_bm3d.c init\n", __FUNCTION__);
     BM3DContext *s = ctx->priv;
     AVFilterPad pad = { 0 };
     int ret;
@@ -1009,6 +1010,7 @@ static av_cold void uninit(AVFilterContext *ctx)
     if (s->ref)
         ff_framesync_uninit(&s->fs);
 
+    av_log(NULL, AV_LOG_ERROR, "jcz---%s threre call av_dct_end s->nb_threads=%d\n", __FUNCTION__, s->nb_threads);
     for (i = 0; i < s->nb_threads; i++) {
         SliceContext *sc = &s->slices[i];
 
